@@ -1,0 +1,465 @@
+package com.example.bettertictactoe;
+
+
+import android.content.Context;
+import android.support.constraint.ConstraintLayout;
+import android.support.constraint.ConstraintSet;
+import android.view.View;
+import android.widget.GridLayout;
+import android.widget.ImageView;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class Game
+{
+    enum TileType
+    {
+        BLANK,
+        X,
+        O
+    }
+    
+    private ImageView[] gameTiles;
+    private GridLayout gameLayout;
+    private final int amountOfRows;
+    private final int amountOfCols;
+    private final int screenWidth;
+    private final int screenHeight;
+    private boolean isWon = false;
+    private String player1 = "Player1";
+    private String player2 = "Player2";
+    private String currentPlayer = player1;
+    private int inRowToWin;
+    ImageView[] rowToCheck;
+    ImageView[] colToCheck;
+    ImageView[] ltrCrossCheck;
+    ImageView[] rtlCrossCheck;
+    List<ImageView[]> checkArrays;
+    int checkCrossArrayLength;
+    int checkRowArrayLength;
+    
+    Context context;
+    
+    Game(int screenWidth, int screenHeight, int amountOfRows, int amountOfCols, int inRowToWin, ConstraintLayout mainLayout, Context context)
+    {
+        //Initialize context
+        this.context = context;
+        
+        //Initilize checkin arrays
+        this.inRowToWin = inRowToWin;
+        checkCrossArrayLength = (inRowToWin * 2) - 1;
+        
+        //Make sure check array length isn't more than shortest side of the game board
+        //This is to avoid null pointer stuff
+        if (checkCrossArrayLength < Math.min(amountOfCols, amountOfRows));
+        {
+            checkCrossArrayLength = Math.min(amountOfCols, amountOfRows);
+        }
+        rowToCheck = new ImageView[checkCrossArrayLength];
+        colToCheck = new ImageView[checkCrossArrayLength];
+        ltrCrossCheck = new ImageView[checkCrossArrayLength];
+        rtlCrossCheck = new ImageView[checkCrossArrayLength];
+        
+        //Put checking arrays here before actual cheking to make code shorter
+        checkArrays = new ArrayList<ImageView[]>(0);
+        
+        //Add passed values to class
+        this.amountOfRows = amountOfRows;
+        this.amountOfCols = amountOfCols;
+        this.screenHeight = screenHeight;
+        this.screenWidth = screenWidth;
+        
+        //Initialize gameLayout
+        gameLayout = new GridLayout(context);
+        int gameLayoutID = View.generateViewId();
+        gameLayout.setId(gameLayoutID);
+        gameLayout.setBackgroundColor(R.color.black);
+    
+        //Add gameLayout to main layout
+        mainLayout.addView(gameLayout);
+    
+        //Set how things are in mainGameLayout
+        ConstraintSet mainViewSet = new ConstraintSet();
+    
+        mainViewSet.clone(mainLayout);
+        mainViewSet.centerHorizontally(gameLayout.getId(), R.id.mainGameLayout);
+        mainViewSet.centerVertically(gameLayout.getId(), R.id.mainGameLayout);
+        mainLayout.setConstraintSet(mainViewSet);
+        
+        //Initialize gameTiles array
+        gameTiles = new ImageView[amountOfRows * amountOfCols];
+        
+        createTiles();
+        
+    }
+    
+    private int calculateTileSideLength()
+    {
+        //Calculate good tile size for game
+        final int maxTileSize = 200;
+        int tilesWidth = screenWidth/amountOfCols;
+        int tilesHeight = screenHeight/amountOfRows;
+        
+        //Return "best" tile size
+        if(tilesWidth <= tilesHeight && tilesWidth <= maxTileSize)
+        {
+            return tilesWidth;
+        }
+        else if (tilesHeight <= maxTileSize)
+        {
+            return tilesHeight;
+        }
+        else
+        {
+            return maxTileSize;
+        }
+    }
+    
+    private void createTiles()
+    {
+        //Create tiles
+        int tileSideSize = calculateTileSideLength();
+        int currentRow = 0;
+        int currentCol = 0;
+        for (int i = 0; i < gameTiles.length; i++)
+        {
+            gameTiles[i] = new ImageView(context);
+    
+            gameTiles[i].setImageResource(R.drawable.blank);
+    
+    //Set tags to get some info from tiles later
+    gameTiles[i].setTag(R.integer.tileType,  TileType.BLANK);
+    gameTiles[i].setTag(R.integer.tileRow, currentRow);
+    gameTiles[i].setTag(R.integer.tileCol, currentCol);
+    
+    //Set how tiles are in layout
+    GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
+    tileParams.rowSpec = GridLayout.spec(currentRow);
+    tileParams.columnSpec = GridLayout.spec(currentCol);
+    tileParams.width = tileSideSize;
+    tileParams.height = tileSideSize;
+            tileParams.setMargins(1,1,1,1);
+    
+    //Add tile to layout
+            gameLayout.addView(gameTiles[i], tileParams);
+    
+    //Create onTouchListener to tile
+    gameTiles[i].setOnClickListener(new View.OnClickListener()
+{
+    @Override
+    public void onClick(View view)
+    {
+        setChoice((ImageView) view);
+    }
+});
+    
+    
+    //Do basic looping increase value stuff
+    currentCol++;
+            if (currentCol == amountOfCols)
+    {
+        currentCol = 0;
+        currentRow++;
+    }
+}
+    }
+
+private void setChoice(ImageView view)
+        {
+            if (!isWon)
+            {
+                //Check that tile is empty
+                if (view.getTag(R.integer.tileType) == TileType.BLANK)
+                {
+                    if (currentPlayer == player1)
+                    {
+                        view.setImageResource(R.drawable.x);
+                        view.setTag(R.integer.tileType, TileType.X);
+                    }
+                    else
+                    {
+                        view.setImageResource(R.drawable.o);
+                        view.setTag(R.integer.tileType, TileType.O);
+                    }
+    
+                    if (checkIfWon(view))
+                    {
+                        isWon = true;
+                    }
+                    changePlayer();
+                }
+            }
+        
+        }
+    
+    private void changePlayer()
+    {
+        if(currentPlayer == player1)
+        {
+            currentPlayer = player2;
+        }
+        else
+        {
+            currentPlayer = player1;
+        }
+    }
+    
+    private boolean checkIfWon(ImageView tile)
+    {
+        class CheckRow
+        {
+            public int firstCol;
+            public int lastCol;
+            private ImageView tile;
+    
+            CheckRow(ImageView tile)
+            {
+                this.tile = tile;
+                createRow();
+            }
+            
+            public void createRow()
+            {
+                //Get first and last tile's col value. Begining and end of row.
+                firstCol = (int)tile.getTag(R.integer.tileCol) - (checkCrossArrayLength /2);
+                lastCol = (int)tile.getTag(R.integer.tileCol) + (checkCrossArrayLength /2);
+                moveRowInBounds();
+            }
+            private void moveRowInBounds()
+            {
+                //Move values in bounds
+                if (firstCol < 0)
+                {
+                    lastCol += (firstCol * -1);
+                    firstCol = 0;
+                }
+                else if (lastCol > (amountOfCols - 1))
+                {
+                    firstCol += ((amountOfCols - 1) - lastCol);
+                    lastCol = (amountOfCols - 1);
+                }
+            }
+            
+            public boolean tileIsInCheckRow(ImageView otherTile)
+            {           //1. Is tile in same row in game board?
+                        //2. - 3. Is tile close enough to matter
+                return ((int)tile.getTag(R.integer.tileRow) == (int)otherTile.getTag(R.integer.tileRow) &&
+                        (int)otherTile.getTag(R.integer.tileCol) >= firstCol &&
+                        (int)otherTile.getTag(R.integer.tileCol) <= lastCol) ;
+            }
+        }
+        class CheckCol
+        {
+            public int firstRow;
+            public int lastRow;
+            private ImageView tile;
+    
+            CheckCol(ImageView tile)
+            {
+                this.tile = tile;
+                createCol();
+                moveColInBounds();
+            }
+    
+            public void createCol()
+            {
+                //Get first and last tile's row value. (Begining and end of col).
+                firstRow = (int)tile.getTag(R.integer.tileRow) - (checkCrossArrayLength /2);
+                lastRow = (int)tile.getTag(R.integer.tileRow) + (checkCrossArrayLength /2);
+            }
+            private void moveColInBounds()
+            {
+                //Move values in bounds
+                if (firstRow < 0)
+                {
+                    lastRow += (firstRow * -1);
+                    firstRow = 0;
+                }
+                else if (lastRow > (amountOfCols - 1))
+                {
+                    firstRow+= ((amountOfCols - 1) - lastRow);
+                    lastRow = (amountOfCols - 1);
+                }
+            }
+    
+            public boolean tileIsInCheckCol(ImageView otherTile)
+            {   //1. Is tile in same col in game board?
+                //2. - 3. Is tile close enough to matter
+                return ((int)tile.getTag(R.integer.tileCol) == (int)otherTile.getTag(R.integer.tileCol) &&
+                        (int)otherTile.getTag(R.integer.tileRow) >= firstRow &&
+                        (int)otherTile.getTag(R.integer.tileRow) <= lastRow);
+            }
+        }
+        class CheckLtrCross
+        {
+            ImageView tile;
+            int firstCol;
+            int firstRow;
+            int lastCol;
+            int lastRow;
+            
+            int currentCol;
+            int currentRow;
+            
+            CheckLtrCross(CheckRow row, CheckCol col, ImageView tile)
+            {
+                firstCol = row.firstCol;
+                firstRow = col.firstRow;
+                lastCol = row.lastCol;
+                lastRow = col.lastRow;
+                this.tile = tile;
+                
+                if (firstCol < 0 )
+                {
+                    firstRow += (-firstCol);
+                    firstCol = 0;
+                }
+                if (firstRow < 0)
+                {
+                    firstCol += (-firstRow);
+                    firstRow = 0;
+                }
+                currentCol = firstCol;
+                currentRow = firstRow;
+            }
+            
+            
+            public boolean tileIsInLtrCheckCross(ImageView othertile)
+            {
+                if (currentRow <= lastRow && currentCol <= lastCol)
+                {
+                    if ((int) othertile.getTag(R.integer.tileCol) == currentCol &&
+                            (int) othertile.getTag(R.integer.tileRow) == currentRow)
+                    {
+                        currentCol++;
+                        currentRow++;
+                        return true;
+                    }
+                }
+                
+                return false;
+            }
+        }
+    
+        class CheckRtlCross
+        {
+        
+            int firstCol;
+            int firstRow;
+            int lastCol;
+            int lastRow;
+        
+            int currentCol;
+            int currentRow;
+            int cols = 0;
+        
+            CheckRtlCross(CheckRow row, CheckCol col)
+            {
+                firstCol = row.firstCol;
+                firstRow = col.firstRow;
+                lastCol = row.lastCol;
+                lastRow = col.lastRow;
+                
+                if (firstRow < 0)
+                {
+                    lastCol += firstRow;
+                    firstRow = 0;
+                }
+                if (lastCol >= amountOfCols)
+                {
+                    firstRow += -((amountOfCols - 1) - lastCol);
+                    lastCol = amountOfCols - 1;
+                }
+                currentCol = lastCol;
+                currentRow = firstRow;
+            }
+        
+        
+            public boolean tileIsInRtlCheckCross(ImageView tile)
+            {
+                
+                
+                if (currentCol >= firstCol && currentRow <= lastRow)
+                {
+                    if ((int) tile.getTag(R.integer.tileCol) == currentCol &&
+                            (int) tile.getTag(R.integer.tileRow) == currentRow)
+                    {
+                        
+                        
+                        currentCol--;
+                        currentRow++;
+                        return true;
+                    }
+                }
+            
+                return false;
+            }
+        }
+        
+        
+        CheckRow checkRow = new CheckRow(tile);
+        CheckCol checkCol = new CheckCol(tile);
+        CheckLtrCross checkLtrCross = new CheckLtrCross(checkRow, checkCol, tile);
+        CheckRtlCross checkRtlCross = new CheckRtlCross(checkRow, checkCol);
+        
+        int rowI = 0;
+        int colI = 0;
+        int ltrCrossI = 0;
+        int rtlCrossI = 0;
+        
+        
+        for (ImageView otherTile : gameTiles)
+        {
+            
+            if (checkRow.tileIsInCheckRow(otherTile))
+            {
+                rowToCheck[rowI++] = otherTile;
+            }
+            if (checkCol.tileIsInCheckCol(otherTile))
+            {
+                colToCheck[colI++] = otherTile;
+            }
+            if (checkLtrCross.tileIsInLtrCheckCross(otherTile))
+            {
+                ltrCrossCheck[ltrCrossI++] = otherTile;
+            }
+            if (checkRtlCross.tileIsInRtlCheckCross(otherTile))
+            {
+                rtlCrossCheck[rtlCrossI++] = otherTile;
+            }
+        }
+        
+        checkArrays.add(rowToCheck);
+        checkArrays.add(colToCheck);
+        checkArrays.add(ltrCrossCheck);
+        checkArrays.add(rtlCrossCheck);
+        
+        //These values are used in cheking
+        TileType wantedTileType = (TileType) tile.getTag(R.integer.tileType);
+        int correctTiles = 0;
+        
+        for (ImageView[] checkArray : checkArrays)
+        {
+            for (ImageView checkTile : checkArray)
+            {
+                if (checkTile.getTag(R.integer.tileType) == wantedTileType)
+                {
+                    correctTiles++;
+                }
+                else
+                {
+                    correctTiles = 0;
+                }
+                if(correctTiles >= inRowToWin)
+                {
+                    return true;
+                }
+            }
+            //Reset amount of correct tiles for next checkArray
+            correctTiles = 0;
+        }
+        
+        return false;
+    }
+}
