@@ -2,12 +2,17 @@ package com.example.bettertictactoe;
 
 
 import android.content.Context;
+import android.graphics.Color;
+import android.media.Image;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.ConstraintSet;
+import android.util.Log;
 import android.view.View;
 import android.widget.GridLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 
+import java.lang.invoke.ConstantCallSite;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +25,8 @@ public class Game
         O
     }
     
-    private ImageView[] gameTiles;
+    private TextView gameText;
+    private ArrayList<ImageView> gameTiles;
     private GridLayout gameLayout;
     private final int amountOfRows;
     private final int amountOfCols;
@@ -31,13 +37,15 @@ public class Game
     private String player2 = "Player2";
     private String currentPlayer = player1;
     private int inRowToWin;
-    ImageView[] rowToCheck;
-    ImageView[] colToCheck;
-    ImageView[] ltrCrossCheck;
-    ImageView[] rtlCrossCheck;
-    List<ImageView[]> checkArrays;
-    int checkCrossArrayLength;
+    List<ImageView> rowToCheck;
+    List<ImageView> colToCheck;
+    List<ImageView> ltrCrossCheck;
+    List<ImageView> rtlCrossCheck;
+    List<List<ImageView>> checkArrays;
+    int maxCheckArrayLength;
     int checkRowArrayLength;
+    int checkColArrayLength;
+    int minCheckArrayLength;
     
     Context context;
     
@@ -48,21 +56,34 @@ public class Game
         
         //Initilize checkin arrays
         this.inRowToWin = inRowToWin;
-        checkCrossArrayLength = (inRowToWin * 2) - 1;
-        
+        maxCheckArrayLength = (inRowToWin * 2) - 1;
         //Make sure check array length isn't more than shortest side of the game board
-        //This is to avoid null pointer stuff
-        if (checkCrossArrayLength < Math.min(amountOfCols, amountOfRows));
+        if(maxCheckArrayLength > amountOfRows)
         {
-            checkCrossArrayLength = Math.min(amountOfCols, amountOfRows);
+            checkColArrayLength = amountOfRows;
+            checkRowArrayLength = maxCheckArrayLength;
         }
-        rowToCheck = new ImageView[checkCrossArrayLength];
-        colToCheck = new ImageView[checkCrossArrayLength];
-        ltrCrossCheck = new ImageView[checkCrossArrayLength];
-        rtlCrossCheck = new ImageView[checkCrossArrayLength];
+        else if(maxCheckArrayLength > amountOfCols)
+        {
+            checkRowArrayLength = amountOfCols;
+            checkColArrayLength = maxCheckArrayLength;
+        }
+        else
+        {
+            checkColArrayLength = maxCheckArrayLength;
+            checkRowArrayLength = maxCheckArrayLength;
+        }
+        minCheckArrayLength = Math.min(checkColArrayLength, checkRowArrayLength);
+        
+        
+        
+        rowToCheck = new ArrayList<ImageView>(0);
+        colToCheck = new ArrayList<ImageView>(0);
+        ltrCrossCheck = new ArrayList<ImageView>(0);
+        rtlCrossCheck = new ArrayList<ImageView>(0);
         
         //Put checking arrays here before actual cheking to make code shorter
-        checkArrays = new ArrayList<ImageView[]>(0);
+        checkArrays = new ArrayList<List<ImageView>>(0);
         
         //Add passed values to class
         this.amountOfRows = amountOfRows;
@@ -76,20 +97,30 @@ public class Game
         gameLayout.setId(gameLayoutID);
         gameLayout.setBackgroundColor(R.color.black);
     
+        //Initialize gameText
+        gameText = new TextView(context);
+        int gameTextID = View.generateViewId();
+        gameText.setId(gameTextID);
+        gameText.setText("Test");
+        gameText.setTextColor(Color.BLACK);
+        gameText.setTextSize(60);
+        
         //Add gameLayout to main layout
         mainLayout.addView(gameLayout);
-    
-        //Set how things are in mainGameLayout
+        
+        //Add gameText to main layout
+        mainLayout.addView(gameText);
+        
+        //Set how things are in gameLayout
         ConstraintSet mainViewSet = new ConstraintSet();
-    
         mainViewSet.clone(mainLayout);
         mainViewSet.centerHorizontally(gameLayout.getId(), R.id.mainGameLayout);
         mainViewSet.centerVertically(gameLayout.getId(), R.id.mainGameLayout);
+        mainViewSet.centerHorizontally(gameText.getId(), gameLayout.getId());
         mainLayout.setConstraintSet(mainViewSet);
         
         //Initialize gameTiles array
-        gameTiles = new ImageView[amountOfRows * amountOfCols];
-        
+        gameTiles = new ArrayList<ImageView>(amountOfRows * amountOfCols);
         createTiles();
         
     }
@@ -122,47 +153,53 @@ public class Game
         int tileSideSize = calculateTileSideLength();
         int currentRow = 0;
         int currentCol = 0;
-        for (int i = 0; i < gameTiles.length; i++)
+        
+        for (int i = 0; i < amountOfRows * amountOfCols; i++)
         {
-            gameTiles[i] = new ImageView(context);
+            gameTiles.add(i, new ImageView(context));
+        }
+        
+        for (ImageView tile : gameTiles)
+        {
+            tile.setImageResource(R.drawable.blank);
     
-            gameTiles[i].setImageResource(R.drawable.blank);
-    
-    //Set tags to get some info from tiles later
-    gameTiles[i].setTag(R.integer.tileType,  TileType.BLANK);
-    gameTiles[i].setTag(R.integer.tileRow, currentRow);
-    gameTiles[i].setTag(R.integer.tileCol, currentCol);
-    
-    //Set how tiles are in layout
-    GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
-    tileParams.rowSpec = GridLayout.spec(currentRow);
-    tileParams.columnSpec = GridLayout.spec(currentCol);
-    tileParams.width = tileSideSize;
-    tileParams.height = tileSideSize;
+            //Set tags to get some info from tiles later
+            tile.setTag(R.integer.tileType,  TileType.BLANK);
+            tile.setTag(R.integer.tileRow, currentRow);
+            tile.setTag(R.integer.tileCol, currentCol);
+            
+            //Set how tiles are in layout
+            GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
+            tileParams.rowSpec = GridLayout.spec(currentRow);
+            tileParams.columnSpec = GridLayout.spec(currentCol);
+            tileParams.width = tileSideSize;
+            tileParams.height = tileSideSize;
             tileParams.setMargins(1,1,1,1);
-    
-    //Add tile to layout
-            gameLayout.addView(gameTiles[i], tileParams);
-    
-    //Create onTouchListener to tile
-    gameTiles[i].setOnClickListener(new View.OnClickListener()
-{
-    @Override
-    public void onClick(View view)
-    {
-        setChoice((ImageView) view);
-    }
-});
-    
-    
-    //Do basic looping increase value stuff
-    currentCol++;
+            
+            //Add tile to game
+            gameLayout.addView(tile, tileParams);
+            
+            //Create onTouchListener to tile
+            tile.setOnClickListener(new View.OnClickListener()
+            {
+                @Override
+                public void onClick(View view)
+                {
+                    setChoice((ImageView) view);
+                }
+            });
+            
+            //Add tile to gameTile array
+            
+            
+            //Do basic looping increase value stuff
+            currentCol++;
             if (currentCol == amountOfCols)
-    {
-        currentCol = 0;
-        currentRow++;
-    }
-}
+            {
+                currentCol = 0;
+                currentRow++;
+            }
+        }
     }
 
 private void setChoice(ImageView view)
@@ -222,8 +259,8 @@ private void setChoice(ImageView view)
             public void createRow()
             {
                 //Get first and last tile's col value. Begining and end of row.
-                firstCol = (int)tile.getTag(R.integer.tileCol) - (checkCrossArrayLength /2);
-                lastCol = (int)tile.getTag(R.integer.tileCol) + (checkCrossArrayLength /2);
+                firstCol = (int)tile.getTag(R.integer.tileCol) - (checkRowArrayLength /2);
+                lastCol = (int)tile.getTag(R.integer.tileCol) + (checkRowArrayLength /2);
                 moveRowInBounds();
             }
             private void moveRowInBounds()
@@ -231,12 +268,10 @@ private void setChoice(ImageView view)
                 //Move values in bounds
                 if (firstCol < 0)
                 {
-                    lastCol += (firstCol * -1);
                     firstCol = 0;
                 }
                 else if (lastCol > (amountOfCols - 1))
                 {
-                    firstCol += ((amountOfCols - 1) - lastCol);
                     lastCol = (amountOfCols - 1);
                 }
             }
@@ -265,21 +300,19 @@ private void setChoice(ImageView view)
             public void createCol()
             {
                 //Get first and last tile's row value. (Begining and end of col).
-                firstRow = (int)tile.getTag(R.integer.tileRow) - (checkCrossArrayLength /2);
-                lastRow = (int)tile.getTag(R.integer.tileRow) + (checkCrossArrayLength /2);
+                firstRow = (int)tile.getTag(R.integer.tileRow) - (checkColArrayLength /2);
+                lastRow = (int)tile.getTag(R.integer.tileRow) + (checkColArrayLength  /2);
             }
             private void moveColInBounds()
             {
                 //Move values in bounds
                 if (firstRow < 0)
                 {
-                    lastRow += (firstRow * -1);
                     firstRow = 0;
                 }
-                else if (lastRow > (amountOfCols - 1))
+                else if (lastRow > (amountOfRows - 1))
                 {
-                    firstRow+= ((amountOfCols - 1) - lastRow);
-                    lastRow = (amountOfCols - 1);
+                    lastRow = (amountOfRows - 1);
                 }
             }
     
@@ -293,7 +326,6 @@ private void setChoice(ImageView view)
         }
         class CheckLtrCross
         {
-            ImageView tile;
             int firstCol;
             int firstRow;
             int lastCol;
@@ -302,28 +334,50 @@ private void setChoice(ImageView view)
             int currentCol;
             int currentRow;
             
-            CheckLtrCross(CheckRow row, CheckCol col, ImageView tile)
+            CheckLtrCross(ImageView tile)
             {
-                firstCol = row.firstCol;
-                firstRow = col.firstRow;
-                lastCol = row.lastCol;
-                lastRow = col.lastRow;
-                this.tile = tile;
                 
-                if (firstCol < 0 )
-                {
-                    firstRow += (-firstCol);
-                    firstCol = 0;
-                }
-                if (firstRow < 0)
-                {
-                    firstCol += (-firstRow);
-                    firstRow = 0;
-                }
+                //Get first and last tile's row value. (Begining and end of col).
+                firstRow = (int)tile.getTag(R.integer.tileRow) - (minCheckArrayLength /2);
+                lastRow = (int)tile.getTag(R.integer.tileRow) + (minCheckArrayLength   /2);
+                //Get first and last tile's col value. Begining and end of row.
+                firstCol = (int)tile.getTag(R.integer.tileCol) - (minCheckArrayLength  /2);
+                lastCol = (int)tile.getTag(R.integer.tileCol) + (minCheckArrayLength  /2);
+                
+                moveInBoundsAndResize();
+                
                 currentCol = firstCol;
                 currentRow = firstRow;
+                
             }
             
+            private void moveInBoundsAndResize()
+            {
+                //If ltrCross goes over of bounds in left, move it right and cut of part going out
+                if (firstCol < 0)
+                {
+                    firstRow += -firstCol;
+                    firstCol = 0;
+                }
+                //If ltrCross goes over of bounds in right, move it left and cut of part going out
+                else if (lastCol > amountOfCols - 1)
+                {
+                    lastRow += ((amountOfCols - 1) - lastCol);
+                    lastCol = (amountOfCols - 1);
+                }
+                //If ltrCross goes over of bounds in up, move it down and cut of part going out
+                if (firstRow < 0)
+                {
+                    firstCol += -firstRow;
+                    firstRow = 0;
+                }
+                //If ltrCross goes over of bounds in down, move it up and cut part going out
+                else if (lastRow > amountOfRows - 1)
+                {
+                    lastCol += (amountOfRows - 1) - lastRow;
+                    lastRow = (amountOfRows - 1);
+                }
+            }
             
             public boolean tileIsInLtrCheckCross(ImageView othertile)
             {
@@ -337,14 +391,12 @@ private void setChoice(ImageView view)
                         return true;
                     }
                 }
-                
                 return false;
             }
         }
     
         class CheckRtlCross
         {
-        
             int firstCol;
             int firstRow;
             int lastCol;
@@ -354,27 +406,44 @@ private void setChoice(ImageView view)
             int currentRow;
             int cols = 0;
         
-            CheckRtlCross(CheckRow row, CheckCol col)
+            CheckRtlCross(ImageView tile)
             {
-                firstCol = row.firstCol;
-                firstRow = col.firstRow;
-                lastCol = row.lastCol;
-                lastRow = col.lastRow;
-                
+                //Get first and last tile's row value. (Begining and end of col).
+                firstRow = (int)tile.getTag(R.integer.tileRow) - (minCheckArrayLength /2);
+                lastRow = (int)tile.getTag(R.integer.tileRow) + (minCheckArrayLength  /2);
+                //Get first and last tile's col value. Begining and end of row.
+                firstCol = (int)tile.getTag(R.integer.tileCol) - (minCheckArrayLength  /2);
+                lastCol = (int)tile.getTag(R.integer.tileCol) + (minCheckArrayLength  /2);
+    
+                moveInBoundsAndResize();
+    
+                currentCol = lastCol;
+                currentRow = firstRow;
+            }
+            
+            private void moveInBoundsAndResize()
+            {
                 if (firstRow < 0)
                 {
                     lastCol += firstRow;
                     firstRow = 0;
+                }
+                else if (lastRow >= amountOfRows - 1)
+                {
+                    firstCol += (lastRow - (amountOfRows - 1));
+                    lastRow = amountOfRows - 1;
                 }
                 if (lastCol >= amountOfCols)
                 {
                     firstRow += -((amountOfCols - 1) - lastCol);
                     lastCol = amountOfCols - 1;
                 }
-                currentCol = lastCol;
-                currentRow = firstRow;
+                else if (firstCol < 0)
+                {
+                    lastRow += -firstCol;
+                    firstCol = 0;
+                }
             }
-        
         
             public boolean tileIsInRtlCheckCross(ImageView tile)
             {
@@ -385,14 +454,11 @@ private void setChoice(ImageView view)
                     if ((int) tile.getTag(R.integer.tileCol) == currentCol &&
                             (int) tile.getTag(R.integer.tileRow) == currentRow)
                     {
-                        
-                        
                         currentCol--;
                         currentRow++;
                         return true;
                     }
                 }
-            
                 return false;
             }
         }
@@ -400,8 +466,8 @@ private void setChoice(ImageView view)
         
         CheckRow checkRow = new CheckRow(tile);
         CheckCol checkCol = new CheckCol(tile);
-        CheckLtrCross checkLtrCross = new CheckLtrCross(checkRow, checkCol, tile);
-        CheckRtlCross checkRtlCross = new CheckRtlCross(checkRow, checkCol);
+        CheckLtrCross checkLtrCross = new CheckLtrCross(tile);
+        CheckRtlCross checkRtlCross = new CheckRtlCross(tile);
         
         int rowI = 0;
         int colI = 0;
@@ -414,19 +480,19 @@ private void setChoice(ImageView view)
             
             if (checkRow.tileIsInCheckRow(otherTile))
             {
-                rowToCheck[rowI++] = otherTile;
+                rowToCheck.add(otherTile);
             }
             if (checkCol.tileIsInCheckCol(otherTile))
             {
-                colToCheck[colI++] = otherTile;
+                colToCheck.add(otherTile);
             }
             if (checkLtrCross.tileIsInLtrCheckCross(otherTile))
             {
-                ltrCrossCheck[ltrCrossI++] = otherTile;
+                ltrCrossCheck.add(otherTile);
             }
             if (checkRtlCross.tileIsInRtlCheckCross(otherTile))
             {
-                rtlCrossCheck[rtlCrossI++] = otherTile;
+                rtlCrossCheck.add(otherTile);
             }
         }
         
@@ -439,7 +505,7 @@ private void setChoice(ImageView view)
         TileType wantedTileType = (TileType) tile.getTag(R.integer.tileType);
         int correctTiles = 0;
         
-        for (ImageView[] checkArray : checkArrays)
+        for (List<ImageView> checkArray : checkArrays)
         {
             for (ImageView checkTile : checkArray)
             {
@@ -463,3 +529,4 @@ private void setChoice(ImageView view)
         return false;
     }
 }
+
