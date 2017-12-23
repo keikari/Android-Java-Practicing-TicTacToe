@@ -519,14 +519,16 @@ private void setChoice(ImageView view)
                 }
                 if(correctTiles >= inRowToWin)
                 {
+                    //Empty used array
+                    checkArray.clear();
                     return true;
                 }
             }
+            //Empty used array
+            checkArray.clear();
             //Reset amount of correct tiles for next checkArray
             correctTiles = 0;
         }
-        
         return false;
     }
 }
-
